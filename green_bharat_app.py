@@ -91,4 +91,3 @@ st.caption(
     "Demo note: submissions are kept only while this app session is running. "
     "For a public app, add secure permanent storage and moderation before launch."
 )
-streamlit
