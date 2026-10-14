@@ -1,93 +1,125 @@
+
 import streamlit as st
+from supabase import create_client
 from datetime import datetime
+import uuid
 
-# Green Bharat - a simple pollution-reduction activity app
-st.set_page_config(
-    page_title="Green Bharat 🌱",
-    page_icon="🌍",
-    layout="centered"
-)
+st.set_page_config(page_title="Green Bharat", page_icon="🌱")
 
-# Session storage for this running app session
-if "green_actions" not in st.session_state:
-    st.session_state.green_actions = []
+st.title("🌱 Green Bharat")
+st.write("Share your actions to reduce pollution and protect our planet!")
 
-st.title("🌍 Green Bharat")
-st.subheader("Small actions. A cleaner India. 🇮🇳")
-st.write(
-    "Upload a photo showing what you did to avoid pollution "
-    "and inspire others to protect our planet."
-)
+# Connect to Supabase using Streamlit Secrets
+try:
+    supabase = create_client(
+        st.secrets["SUPABASE_URL"],
+        st.secrets["SUPABASE_SECRET_KEY"]
+    )
+except Exception:
+    st.error("Database connection failed. Please check Streamlit Secrets.")
+    st.stop()
 
-st.info(
-    "Ideas: plant a tree, walk or cycle instead of using a vehicle, "
-    "reuse items, pick up litter, or avoid single-use plastic."
-)
-
-st.markdown("### 🌱 Share your green action")
+st.subheader("📸 Share Your Green Action")
 
 with st.form("green_action_form"):
-    name = st.text_input("Your name", placeholder="Enter your name")
+    name = st.text_input("Your name")
     activity = st.selectbox(
         "What did you do?",
         [
-            "Planted a tree or cared for a plant",
-            "Walked or cycled instead of using a vehicle",
-            "Collected litter or cleaned an area",
-            "Avoided single-use plastic",
-            "Reused or recycled something",
-            "Saved electricity or water",
-            "Used public transport or carpooled",
-            "Other green action",
-        ],
+            "Planted a tree",
+            "Used public transport",
+            "Walked or cycled",
+            "Avoided plastic",
+            "Recycled waste",
+            "Saved electricity",
+            "Cleaned my surroundings",
+            "Other"
+        ]
     )
-    description = st.text_area(
-        "Describe your action",
-        placeholder="Tell us how your action helps the environment..."
-    )
+    description = st.text_area("Describe your green action")
     photo = st.file_uploader(
-        "Upload a photo of your action",
-        type=["jpg", "jpeg", "png"],
-        help="Choose a JPG or PNG image from your device."
+        "Upload a photo as evidence",
+        type=["jpg", "jpeg", "png"]
     )
-    submitted = st.form_submit_button("🌿 Submit My Green Action")
+    submitted = st.form_submit_button("Submit Green Action 🌍")
 
 if submitted:
-    if not name.strip():
-        st.error("Please enter your name.")
-    elif not description.strip():
-        st.error("Please describe what you did.")
-    elif photo is None:
-        st.error("Please upload a photo of your green action.")
+    if not name.strip() or not description.strip() or photo is None:
+        st.warning("Please enter your name, description, and upload a photo.")
     else:
-        # Keep the photo in session memory while this app session is running.
-        image_bytes = photo.getvalue()
-        st.session_state.green_actions.append(
-            {
+        try:
+            image_bytes = photo.getvalue()
+            extension = photo.name.rsplit(".", 1)[-1].lower()
+            photo_path = f"{uuid.uuid4().hex}.{extension}"
+
+            # Upload photo to private Supabase Storage
+            supabase.storage.from_("green-photos").upload(
+                photo_path,
+                image_bytes,
+                {"content-type": photo.type}
+            )
+
+            # Save the submission in the database
+            supabase.table("green_actions").insert({
                 "name": name.strip(),
                 "activity": activity,
                 "description": description.strip(),
-                "image": image_bytes,
-                "image_type": photo.type or "image/png",
-                "submitted_at": datetime.now().strftime("%d %b %Y, %I:%M %p"),
-            }
-        )
-        st.success("Thank you! Your green action has been submitted. 💚")
-        st.balloons()
+                "photo_path": photo_path,
+                "points": 0,
+                "verification_status": "pending"
+            }).execute()
+
+            st.success(
+                "Your green action was saved permanently! "
+                "It is awaiting verification."
+            )
+        except Exception as error:
+            st.error("Could not save your submission. Please try again.")
+            st.caption("Check your Supabase table and storage bucket settings.")
 
 st.divider()
-st.markdown("### 🌏 Green Bharat Community")
-st.metric("Green actions submitted this session", len(st.session_state.green_actions))
+st.subheader("🌿 Community Green Actions")
+st.caption("Only approved submissions appear here.")
 
-# Show submitted actions, newest first
-for index, action in enumerate(reversed(st.session_state.green_actions), start=1):
-    with st.container(border=True):
-        st.markdown(f"**🌱 {action['name']}** — {action['activity']}")
-        st.caption(f"Submitted: {action['submitted_at']}")
-        st.write(action["description"])
-        st.image(action["image"], caption="Community green action", use_container_width=True)
+try:
+    result = (
+        supabase.table("green_actions")
+        .select("*")
+        .eq("verification_status", "approved")
+        .order("created_at", desc=True)
+        .limit(20)
+        .execute()
+    )
 
+    actions = result.data or []
+
+    if not actions:
+        st.info("No approved actions yet. Be the first to share one!")
+
+    for action in actions:
+        with st.container(border=True):
+            st.write("### " + action["activity"])
+            st.write(action["description"])
+            st.caption("Shared by " + action["name"])
+            st.caption(
+                "Submitted: " + str(action.get("created_at", ""))
+            )
+
+            try:
+                signed = supabase.storage.from_("green-photos").create_signed_url(
+                    action["photo_path"], 3600
+                )
+                photo_url = signed.get("signedURL") or signed.get("signedUrl")
+                if photo_url:
+                    st.image(photo_url, width=400)
+            except Exception:
+                st.caption("Photo temporarily unavailable.")
+
+except Exception:
+    st.warning("Unable to load community actions right now.")
+
+st.divider()
 st.caption(
-    "Demo note: submissions are kept only while this app session is running. "
-    "For a public app, add secure permanent storage and moderation before launch."
+    "🌍 Green Bharat | All submissions start pending. "
+    "Points are not awarded until actions are verified."
 )
