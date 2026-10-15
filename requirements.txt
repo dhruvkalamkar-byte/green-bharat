@@ -1,4 +1,6 @@
 
 streamlit
 supabase
+openai
+
 
