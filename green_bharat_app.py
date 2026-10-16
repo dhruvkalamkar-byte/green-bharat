@@ -13,15 +13,41 @@ st.title("🌱 Green Bharat")
 st.subheader("Small actions. A cleaner India. 🇮🇳")
 
 # Connect to services
+
+# Connect to services safely
+required = [
+    "SUPABASE_URL",
+    "SUPABASE_SECRET_KEY",
+    "OPENAI_API_KEY",
+]
+
+missing = [key for key in required if not st.secrets.get(key)]
+
+if missing:
+    st.error("Missing Streamlit Secrets: " + ", ".join(missing))
+    st.stop()
+
 try:
     supabase = create_client(
         st.secrets["SUPABASE_URL"],
         st.secrets["SUPABASE_SECRET_KEY"]
     )
-    ai_client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-except Exception:
-    st.error("Setup error. Check your Streamlit Secrets.")
+    st.success("Supabase client setup passed.")
+except Exception as e:
+    st.error("Supabase setup failed.")
+    st.caption("Error type: " + type(e).__name__)
     st.stop()
+
+try:
+    ai_client = OpenAI(
+        api_key=st.secrets["OPENAI_API_KEY"]
+    )
+    st.success("OpenAI client setup passed.")
+except Exception as e:
+    st.error("OpenAI setup failed.")
+    st.caption("Error type: " + type(e).__name__)
+    st.stop()
+
 
 
 def review_photo(image_bytes, mime_type, activity, description):
