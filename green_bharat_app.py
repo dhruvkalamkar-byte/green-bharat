@@ -7,9 +7,12 @@ import base64
 import uuid
 import hmac
 
-st.set_page_config(page_title="Green Bharat", page_icon="🌱")
 
-st.title("🌱 Green Bharat")
+st.set_page_config(
+    page_title="Yes to Trees, No to Pollution",
+    page_icon="🌳"
+)
+st.title("🌳 Yes to Trees, No to Pollution!")
 st.subheader("Small actions. A cleaner India. 🇮🇳")
 
 # Connect to services
