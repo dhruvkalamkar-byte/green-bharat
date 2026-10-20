@@ -176,7 +176,8 @@ try:
         .execute()
     )
 
-    if not result.data:
+    action['id']}",
+                    min_value=0,if not result.data:
         st.info("No approved actions yet. Be the first to share one!")
 
     for action in result.data or []:
@@ -246,8 +247,7 @@ if st.session_state.admin_logged_in:
                     st.warning("Could not load this photo.")
 
                 points = st.number_input(
-                    f"Points for submission {action['id']}",
-                    min_value=0,
+                    f"Points for submission {
                     max_value=100,
                     value=10,
                     key=f"points_{action['id']}"
@@ -270,25 +270,24 @@ if st.session_state.admin_logged_in:
                         else:
                             st.warning("No record updated. Refresh and check its status.")
 
-                with col2:
-                    if st.button("❌ Reject", key=f"reject_{action['id']}"):
-                        updated = supabase.table("green_actions").update({
-                            "verification_status": "rejected",
-                            "points": 0
-                        }).eq("id", action["id"]).eq(
-                            "verification_status", "pending"
-                        ).execute()
+                
+if st.button("✅ Approve", key=f"approve_{action['id']}"):
+    try:
+        updated = supabase.table("green_actions").update({
+            "verification_status": "approved",
+            "points": int(points)
+        }).eq("id", action["id"]).eq(
+            "verification_status", "pending"
+        ).execute()
 
-                        if updated.data:
-                            st.success("Submission rejected.")
-                            st.rerun()
-                        else:
-                            st.warning("No record updated. Refresh and check its status.")
+        if updated.data:
+            st.success("Submission approved!")
+            st.rerun()
+        else:
+            st.warning(
+                "No record updated. Refresh and check its status."
+            )
 
-    except Exception:
-        st.error("Unable to load pending submissions. Check database access.")
-
-st.caption(
-    "🌍 Green Bharat | AI feedback is advisory. "
-    "Human review is required before approval."
-)
+    except Exception as e:
+        st.error("Approval failed.")
+        st.caption("Error type: " + type(e).__name__)
