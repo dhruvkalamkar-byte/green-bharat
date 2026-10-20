@@ -178,8 +178,7 @@ try:
         .limit(50)
         .execute()
     )
-
-    action['id']}",
+action['id']}",
                     min_value=0,if not result.data:
         st.info("No approved actions yet. Be the first to share one!")
 
